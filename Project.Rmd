@@ -1,0 +1,270 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r}
+# Load required libraries
+library(quantmod)
+```
+
+
+```{r}
+# Define start and end dates
+start_date <- "2014-01-01"
+end_date <- "2024-04-16"
+```
+
+
+```{r}
+# Fetch data for Bitcoin
+BTC_data <- getSymbols("BTC-USD", src = "yahoo", from = start_date, to = end_date, auto.assign = FALSE, periodicity = "monthly")
+
+# Fetch data for Ethereum
+ETH_data <- getSymbols("ETH-USD", src = "yahoo", from = start_date, to = end_date, auto.assign = FALSE, periodicity = "monthly")
+head(BTC_data)
+```
+
+```{r}
+# Check for and handle any missing or non-finite values in the data
+BTC_data <- na.omit(BTC_data)
+ETH_data <- na.omit(ETH_data)
+```
+
+
+```{r}
+# Extract adjusted close prices
+btc_prices <- Ad(BTC_data)
+eth_prices <- Ad(ETH_data)
+
+# Calculate log returns and omit NA values
+btc_log_returns <- na.omit(diff(log(btc_prices)))
+eth_log_returns <- na.omit(diff(log(eth_prices)))
+
+# Print the first few entries of the log returns for Bitcoin and Ethereum
+head(btc_log_returns)
+head(eth_log_returns)
+```
+```{r}
+# Summary statistics for btc_log_returns
+summary(btc_log_returns)
+
+# Summary statistics for eth_log_returns
+summary(eth_log_returns)
+```
+
+
+```{r}
+# Plot Bitcoin and Ethereum log returns
+plot(btc_log_returns, type = "l", col = "blue", main = "Bitcoin Log Returns")
+plot(eth_log_returns, type = "l", col = "red", main = "Ethereum Log Returns")
+
+# Add axis labels and a legend
+xlabel <- "Date"
+ylabel <- "Log Returns"
+legend("topright", legend = c("Bitcoin", "Ethereum"), col = c("blue", "red"), lty = 1)
+```
+
+
+```{r}
+# Load necessary libraries
+library(tseries)
+# Check for stationarity (ADF test)
+adf_test <- adf.test(btc_log_returns)
+print(paste("ADF Test Statistic Bitcoin:", adf_test$statistic))
+print(paste("ADF Test p-value Bitcoin:", adf_test$p.value))
+
+# Check for stationarity (ADF test)
+adf_test1 <- adf.test(eth_log_returns)
+print(paste("ADF Test Statistic Ethereum:", adf_test1$statistic))
+print(paste("ADF Test p-value Ethereum:", adf_test1$p.value))
+
+# Plot ACF and PACF
+acf_plot <- acf(btc_log_returns, main = "ACF Plot Bitcoin", lag.max = 30)
+pacf_plot <- pacf(btc_log_returns, main = "PACF Plot Bitcoin", lag.max = 30)
+
+# Plot ACF and PACF
+acf_plot <- acf(eth_log_returns, main = "ACF Plot Ethereum", lag.max = 30)
+pacf_plot <- pacf(eth_log_returns, main = "PACF Plot Ethereum", lag.max = 30)
+```
+```{r}
+# Difference the Ethereum log returns with lag 1
+eth_log_returns_stationary <- na.omit(diff(eth_log_returns, differences = 1))
+
+# Check for stationarity again using ADF test
+adf_test_stationary <- adf.test(eth_log_returns_stationary)
+print(paste("ADF Test Statistic Ethereum (Stationary):", adf_test_stationary$statistic))
+print(paste("ADF Test p-value Ethereum (Stationary):", adf_test_stationary$p.value))
+```
+
+
+```{r}
+# Load necessary libraries
+library(forecast)
+
+btc_ts <- ts(btc_log_returns, frequency = 12)  # Assuming monthly data
+# Fit Holt-Winters model
+model <- HoltWinters(btc_ts)
+# Generate forecasts for the next 3 periods
+btc_forecast <- predict(model, n.ahead = 3)
+# Print the forecasts
+print(btc_forecast)
+
+
+# Plot the forecasts
+plot(btc_forecast, main = "BTC Forecast")
+```
+
+
+```{r}
+# Load necessary libraries
+library(forecast)
+
+eth_ts <- ts(eth_log_returns_stationary, frequency = 12)  # Assuming monthly data
+# Fit Holt-Winters model
+model1 <- HoltWinters(eth_ts)
+# Generate forecasts for the next 3 periods
+```
+
+
+```{r}
+eth_forecast <- predict(model1, n.ahead = 3)
+# Print the forecasts
+print(eth_forecast)
+
+# Plot the forecasts
+plot(eth_forecast, main = "Ethereum Forecast")
+```
+```{r}
+# Load the forecast library
+library(forecast)
+
+# Run auto.arima on the differenced series
+arima_model <- auto.arima(btc_log_returns)
+
+# Print the summary of the ARIMA model
+print(summary(arima_model))
+
+# Plot the diagnostics of the ARIMA model
+plot(arima_model)
+```
+```{r}
+# Forecast using ARIMA(2,0,1) model
+forecast_arima <- forecast(arima_model, h = 10)  # Forecasting for the next 10 periods
+
+# Print the forecast
+print(forecast_arima)
+```
+```{r}
+# Plot the forecast
+plot(forecast_arima, main = "Forecast of Bitcoin Log Returns", xlab = "Period", ylab = "Log Returns", xlim = c(1, 10))
+```
+
+```{r}
+error2 <- ts(resid(forecast_arima)^2)
+
+# Perform ADF test
+adf_test_error2 <- adf.test(error2)
+print(adf_test_error2)
+
+# Plot ACF and PACF
+acf_plot <- acf(error2, main = "ACF Plot Error^2", lag.max = 30)
+pacf_plot <- pacf(error2, main = "PACF Plot Error^2", lag.max = 30)
+```
+
+```{r}
+# Run ARIMA(0,1,1)
+arima_model <- Arima(error2, order=c(1,0,5))
+
+# Print the results
+print(arima_model)
+```
+```{r}
+fcast <- forecast(arima_model, h=10)
+print(fcast)
+plot(fcast)
+```
+
+```{r}
+# Load the forecast library
+library(forecast)
+
+# Run auto.arima on the differenced series
+arima_model <- auto.arima(eth_log_returns_stationary)
+
+# Print the summary of the ARIMA model
+print(summary(arima_model))
+
+# Plot the diagnostics of the ARIMA model
+plot(arima_model)
+```
+```{r}
+# Fit ARIMA(2,0,1) model
+arima_model <- arima(eth_log_returns_stationary, order=c(2,0,1))
+
+# Summary of the model
+summary(arima_model)
+```
+
+
+```{r}
+# Forecast using ARIMA(2,0,1) model
+forecast_arima <- forecast(arima_model, h = 10)  # Forecasting for the next 10 periods
+
+# Print the forecast
+print(forecast_arima)
+```
+
+
+```{r}
+# Plot the forecast
+plot(forecast_arima, main = "Forecast of Ethereum Log Returns", xlab = "Period", ylab = "Log Returns", xlim = c(1, 10))
+```
+
+
+```{r}
+error2 <- ts(resid(forecast_arima)^2)
+
+# Perform ADF test
+adf_test_error2 <- adf.test(error2)
+print(adf_test_error2)
+
+# Plot ACF and PACF
+acf_plot <- acf(error2, main = "ACF Plot Error^2", lag.max = 30)
+pacf_plot <- pacf(error2, main = "PACF Plot Error^2", lag.max = 30)
+```
+
+```{r}
+varianceq <- auto.arima(error2)
+varianceq
+```
+
+```{r}
+
+# Run ARIMA(0,1,1)
+arima_model <- Arima(error2, order=c(0,0,1))
+
+# Print the results
+print(arima_model)
+
+```
+```{r}
+
+fcast <- forecast(arima_model, h=10)
+print(fcast)
+plot(fcast)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
